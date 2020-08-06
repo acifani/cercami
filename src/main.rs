@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
 use std::env;
 use std::process;
 
@@ -9,7 +11,7 @@ fn main() {
         process::exit(1);
     });
 
-    if let Err(e) = run(config) {
+    if let Err(e) = run(&config) {
         eprintln!("Application error: {}", e);
         process::exit(1);
     }

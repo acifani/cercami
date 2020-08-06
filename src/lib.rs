@@ -1,3 +1,6 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+#![allow(clippy::missing_errors_doc)]
+
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -12,7 +15,7 @@ const STOP_WORDS: [&str; 10] = [
     "a", "and", "be", "have", "i", "in", "of", "that", "the", "to",
 ];
 
-pub fn run(config: Config) -> Result<(), Box<dyn error::Error>> {
+pub fn run(config: &Config) -> Result<(), Box<dyn error::Error>> {
     let index = Index::new(&config.db_path)?;
     let results = index.search(&config.query);
     println!("{:#?}", results);
@@ -86,31 +89,34 @@ impl Index {
         let tokens = self.tokenize(&doc.text);
 
         for token in tokens {
-            let value: Vec<u32> = match self.index.get(&token) {
-                Some(existing) => match existing.contains(&doc.id) {
-                    true => existing.clone(),
-                    false => {
-                        let mut tmp = existing.clone();
-                        tmp.push(doc.id);
-                        tmp.to_vec()
-                    }
-                },
-                None => {
-                    let mut tmp = Vec::new();
+            let docs_containing_token: Vec<u32> = if let Some(existing) = self.index.get(&token) {
+                if existing.contains(&doc.id) {
+                    existing.clone()
+                } else {
+                    let mut tmp = existing.clone();
                     tmp.push(doc.id);
                     tmp.to_vec()
                 }
+            } else {
+                let mut tmp = Vec::new();
+                tmp.push(doc.id);
+                tmp.to_vec()
             };
 
-            self.index.insert(token, value);
+            self.index.insert(token, docs_containing_token);
         }
     }
 
     fn tokenize(&self, text: &str) -> Vec<String> {
         text.to_lowercase()
             .split_whitespace()
-            .filter(|w| !STOP_WORDS.contains(w))
-            .map(|w| self.stemmer.stem(w).into_owned())
+            .filter_map(|w| {
+                if STOP_WORDS.contains(&w) {
+                    None
+                } else {
+                    Some(self.stemmer.stem(w).into_owned())
+                }
+            })
             .collect()
     }
 }
