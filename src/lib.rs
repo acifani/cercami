@@ -107,10 +107,9 @@ impl Index {
     }
 
     fn tokenize(&self, text: &str) -> Vec<String> {
-        text
-            .to_lowercase()
+        text.to_lowercase()
             .split_whitespace()
-            .filter(|w| STOP_WORDS.contains(&w))
+            .filter(|w| !STOP_WORDS.contains(w))
             .map(|w| self.stemmer.stem(w).into_owned())
             .collect()
     }
