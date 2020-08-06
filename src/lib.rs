@@ -6,6 +6,7 @@ use std::env;
 use std::error;
 use std::fs;
 use std::io;
+use std::time;
 
 use quick_xml::de::from_reader;
 use rust_stemmers::{Algorithm, Stemmer};
@@ -16,9 +17,19 @@ const STOP_WORDS: [&str; 10] = [
 ];
 
 pub fn run(config: &Config) -> Result<(), Box<dyn error::Error>> {
+    let index_start = time::Instant::now();
     let index = Index::new(&config.db_path)?;
+    let indexing_time = index_start.elapsed().as_secs();
+
+    let search_start = time::Instant::now();
     let results = index.search(&config.query);
+    let search_time = search_start.elapsed().as_micros();
+
     println!("{:#?}", results);
+    println!("Number of results: {}", results.len());
+    println!("Total number of indexed documents: {}", index.index.len());
+    println!("Indexing: {}s", indexing_time);
+    println!("Search: {}\u{3bc}s", search_time);
     Ok(())
 }
 
