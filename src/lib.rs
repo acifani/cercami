@@ -8,8 +8,9 @@ use quick_xml::de::from_reader;
 use rust_stemmers::{Algorithm, Stemmer};
 use serde::Deserialize;
 
-const STOP_WORDS: [&str; 10] = ["a", "and", "be", "have", "i",
-    "in", "of", "that", "the", "to"];
+const STOP_WORDS: [&str; 10] = [
+    "a", "and", "be", "have", "i", "in", "of", "that", "the", "to",
+];
 
 pub fn run(config: Config) -> Result<(), Box<dyn error::Error>> {
     let index = Index::new(&config.db_path)?;
@@ -83,17 +84,15 @@ impl Index {
         let tokens = self.tokenize(&doc.text);
 
         for token in tokens {
-            let value: Vec<u32> = match self.index.get_mut(&token) {
-                Some(existing) => {
-                    match existing.contains(&doc.id) {
-                        true => existing.clone(),
-                        false => {
-                            let mut tmp = existing.clone();
-                            tmp.push(doc.id);
-                            tmp.to_vec()
-                        }
+            let value: Vec<u32> = match self.index.get(&token) {
+                Some(existing) => match existing.contains(&doc.id) {
+                    true => existing.clone(),
+                    false => {
+                        let mut tmp = existing.clone();
+                        tmp.push(doc.id);
+                        tmp.to_vec()
                     }
-                }
+                },
                 None => {
                     let mut tmp = Vec::new();
                     tmp.push(doc.id);
@@ -117,7 +116,7 @@ impl Index {
 
 #[derive(Deserialize, Debug)]
 struct Docs {
-    doc: Vec<Document>
+    doc: Vec<Document>,
 }
 
 #[derive(Deserialize, Debug)]
