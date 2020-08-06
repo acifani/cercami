@@ -26,6 +26,8 @@ pub struct Config {
 
 impl Config {
     pub fn new(mut args: env::Args) -> Result<Self, &'static str> {
+        args.next();
+
         let db_path = match args.next() {
             Some(arg) => arg,
             None => return Err("Didn't get a db path"),
