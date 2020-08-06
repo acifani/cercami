@@ -24,7 +24,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(mut args: env::Args) -> Result<Config, &'static str> {
+    pub fn new(mut args: env::Args) -> Result<Self, &'static str> {
         let db_path = match args.next() {
             Some(arg) => arg,
             None => return Err("Didn't get a db path"),
@@ -35,7 +35,7 @@ impl Config {
             None => return Err("Didn't get a query"),
         };
 
-        Ok(Config { query, db_path })
+        Ok(Self { query, db_path })
     }
 }
 
@@ -45,7 +45,7 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn new(db_path: &str) -> Result<Index, Box<dyn error::Error>> {
+    pub fn new(db_path: &str) -> Result<Self, Box<dyn error::Error>> {
         let file = fs::File::open(db_path)?;
         let reader = io::BufReader::new(file);
         let docs: Docs = from_reader(reader)?;
@@ -53,7 +53,7 @@ impl Index {
         let index = HashMap::new();
         let stemmer = Stemmer::create(Algorithm::English);
 
-        let mut index = Index { index, stemmer };
+        let mut index = Self { index, stemmer };
         for (idx, doc) in docs.doc.iter().enumerate() {
             let document = Document {
                 title: doc.title.clone(),
@@ -79,7 +79,6 @@ impl Index {
         results
     }
 
-    //noinspection RsTypeCheck
     pub fn add(&mut self, doc: &Document) {
         let tokens = self.tokenize(&doc.text);
 
