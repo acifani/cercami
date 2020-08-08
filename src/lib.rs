@@ -152,8 +152,15 @@ pub fn run(config: &Config) -> Result<(), Box<dyn error::Error>> {
     let results = index.search(&config.query);
     let search_time = search_start.elapsed().as_micros();
 
-    println!("{:#?}", results);
+    for result in &results {
+        println!("{} {}", result, index.documents.get(result).unwrap());
+    }
+
     println!("Number of results: {}", results.len());
+    println!(
+        "Total number of indexed documents: {}",
+        index.documents.len()
+    );
     println!("Total number of indexed tokens: {}", index.index.len());
     println!("Indexing: {}s", indexing_time);
     println!("Search: {}\u{3bc}s", search_time);
@@ -185,6 +192,7 @@ impl Config {
 
 pub struct Index {
     index: HashMap<String, Vec<u32>>,
+    documents: HashMap<u32, String>,
     stemmer: Stemmer,
 }
 
@@ -196,8 +204,14 @@ impl Index {
 
         let index = HashMap::new();
         let stemmer = Stemmer::create(Algorithm::English);
+        let documents = HashMap::new();
 
-        let mut index = Self { index, stemmer };
+        let mut index = Self {
+            index,
+            stemmer,
+            documents,
+        };
+
         for (idx, doc) in docs.doc.iter().enumerate() {
             let document = Document {
                 title: doc.title.clone(),
@@ -232,6 +246,7 @@ impl Index {
     }
 
     pub fn add(&mut self, doc: &Document) {
+        self.documents.insert(doc.id, doc.text.clone());
         let tokens = self.tokenize(&doc.text);
 
         for token in tokens {
