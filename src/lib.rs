@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::missing_errors_doc)]
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -27,7 +28,7 @@ pub fn run(config: &Config) -> Result<(), Box<dyn error::Error>> {
 
     println!("{:#?}", results);
     println!("Number of results: {}", results.len());
-    println!("Total number of indexed documents: {}", index.index.len());
+    println!("Total number of indexed tokens: {}", index.index.len());
     println!("Indexing: {}s", indexing_time);
     println!("Search: {}\u{3bc}s", search_time);
     Ok(())
@@ -88,11 +89,19 @@ impl Index {
     pub fn search(&self, query: &str) -> Vec<u32> {
         let tokens = self.tokenize(query);
         let mut results = Vec::new();
+
         for token in tokens {
-            if let Some(indexes) = self.index.get(&token) {
-                results = [results, indexes.to_vec()].concat()
+            match self.index.get(&token) {
+                Some(indexes) => {
+                    results = match results.len() {
+                        0 => indexes.clone(),
+                        _ => Self::intersect_ordered_vecs(&results, indexes),
+                    };
+                }
+                None => return Vec::new(),
             }
         }
+
         results
     }
 
@@ -129,6 +138,27 @@ impl Index {
                 }
             })
             .collect()
+    }
+
+    fn intersect_ordered_vecs(a: &[u32], b: &[u32]) -> Vec<u32> {
+        let max_len = if a.len() > b.len() { a.len() } else { b.len() };
+        let mut results: Vec<u32> = Vec::with_capacity(max_len);
+
+        let mut i = 0;
+        let mut j = 0;
+        while i < a.len() && j < b.len() {
+            match a.cmp(b) {
+                Ordering::Greater => j += 1,
+                Ordering::Less => i += 1,
+                Ordering::Equal => {
+                    results.push(a[i]);
+                    j += 1;
+                    i += 1;
+                }
+            }
+        }
+
+        results
     }
 }
 
