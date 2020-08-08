@@ -9,6 +9,7 @@ use std::fs;
 use std::io;
 use std::time;
 
+use croaring::bitmap::Bitmap;
 use quick_xml::de::from_reader;
 use rust_stemmers::{Algorithm, Stemmer};
 use serde::Deserialize;
@@ -152,11 +153,11 @@ pub fn run(config: &Config) -> Result<(), Box<dyn error::Error>> {
     let results = index.search(&config.query);
     let search_time = search_start.elapsed().as_micros();
 
-    for result in &results {
-        println!("{} {}", result, index.documents.get(result).unwrap());
+    for result in results.iter() {
+        println!("{} {}", result, index.documents.get(&result).unwrap());
     }
 
-    println!("Number of results: {}", results.len());
+    println!("Number of results: {}", results.cardinality());
     println!(
         "Total number of indexed documents: {}",
         index.documents.len()
@@ -191,7 +192,7 @@ impl Config {
 }
 
 pub struct Index {
-    index: HashMap<String, Vec<u32>>,
+    index: HashMap<String, Bitmap>,
     documents: HashMap<u32, String>,
     stemmer: Stemmer,
 }
@@ -226,19 +227,19 @@ impl Index {
         Ok(index)
     }
 
-    pub fn search(&self, query: &str) -> Vec<u32> {
+    pub fn search(&self, query: &str) -> Bitmap {
         let tokens = self.tokenize(query);
-        let mut results = Vec::new();
+        let mut results = Bitmap::create();
 
         for token in tokens {
             match self.index.get(&token) {
                 Some(indexes) => {
-                    results = match results.len() {
+                    results = match results.cardinality() {
                         0 => indexes.clone(),
-                        _ => Self::intersect_ordered_vecs(&results, indexes),
+                        _ => results.and(indexes),
                     };
                 }
-                None => return Vec::new(),
+                None => return Bitmap::create(),
             }
         }
 
@@ -250,18 +251,18 @@ impl Index {
         let tokens = self.tokenize(&doc.text);
 
         for token in tokens {
-            let docs_containing_token: Vec<u32> = if let Some(existing) = self.index.get(&token) {
-                if existing.contains(&doc.id) {
+            let docs_containing_token: Bitmap = if let Some(existing) = self.index.get(&token) {
+                if existing.contains(doc.id) {
                     existing.clone()
                 } else {
                     let mut tmp = existing.clone();
-                    tmp.push(doc.id);
-                    tmp.to_vec()
+                    tmp.add(doc.id);
+                    tmp
                 }
             } else {
-                let mut tmp = Vec::new();
-                tmp.push(doc.id);
-                tmp.to_vec()
+                let mut tmp = Bitmap::create();
+                tmp.add(doc.id);
+                tmp
             };
 
             self.index.insert(token, docs_containing_token);
@@ -279,27 +280,6 @@ impl Index {
                 }
             })
             .collect()
-    }
-
-    fn intersect_ordered_vecs(a: &[u32], b: &[u32]) -> Vec<u32> {
-        let max_len = if a.len() > b.len() { a.len() } else { b.len() };
-        let mut results: Vec<u32> = Vec::with_capacity(max_len);
-
-        let mut i = 0;
-        let mut j = 0;
-        while i < a.len() && j < b.len() {
-            match a.cmp(b) {
-                Ordering::Greater => j += 1,
-                Ordering::Less => i += 1,
-                Ordering::Equal => {
-                    results.push(a[i]);
-                    j += 1;
-                    i += 1;
-                }
-            }
-        }
-
-        results
     }
 }
 
