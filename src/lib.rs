@@ -1,7 +1,6 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
 #![allow(clippy::missing_errors_doc)]
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::env;
 use std::error;
@@ -273,10 +272,11 @@ impl Index {
         text.to_lowercase()
             .split_whitespace()
             .filter_map(|w| {
-                if STOP_WORDS.contains(&w) {
+                let word: String = w.chars().filter(|c| c.is_alphanumeric()).collect();
+                if STOP_WORDS.contains(&word.as_str()) {
                     None
                 } else {
-                    Some(self.stemmer.stem(w).into_owned())
+                    Some(self.stemmer.stem(&word).into_owned())
                 }
             })
             .collect()
